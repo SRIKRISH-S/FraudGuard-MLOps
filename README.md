@@ -180,3 +180,32 @@ We run a local testing suite using `pytest` to validate core components:
 pytest tests/ -v --cov=src
 ```
 CI builds will automatically validate code lints using `flake8` and run unit tests.
+
+---
+
+## 🎨 Professional React Dashboard & Vercel Deployment
+
+A high-fidelity React dashboard is available inside the [frontend/](file:///d:/FraudGuard/frontend) directory. It communicates with the Python FastAPI backend, offering a real-time transaction analyzer, batch simulation engine, MLOps metrics, drift logs, and an audit table.
+
+### 1. Run React Dashboard Locally
+To start the React frontend locally, install Node dependencies and trigger Vite's dev server:
+```bash
+cd frontend
+npm install
+npm run dev
+```
+Navigate to [http://localhost:5173](http://localhost:5173) in your browser. The frontend will automatically route API requests to the local FastAPI backend on [http://localhost:8000](http://localhost:8000).
+
+### 2. Install Development & Training Dependencies
+The main [requirements.txt](file:///d:/FraudGuard/requirements.txt) is optimized with minimal dependencies for lightweight production hosting. For training pipelines, notebooks, and Streamlit, install development dependencies:
+```bash
+pip install -r requirements-dev.txt
+```
+
+### 3. Deploy to Vercel
+The repository is fully configured for Vercel out of the box using [vercel.json](file:///d:/FraudGuard/vercel.json):
+- The static React dashboard compiles automatically.
+- The Python FastAPI backend compiles into Vercel Serverless Functions under `@vercel/python`.
+- Requests starting with `/api` rewrite to the FastAPI serverless backend.
+
+Simply link the repository on your Vercel Dashboard, select **Vite** or **No Framework** (Vercel auto-detects Vite from `frontend/package.json` when the root is configured), and click **Deploy**.

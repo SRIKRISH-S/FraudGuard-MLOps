@@ -1,0 +1,15 @@
+/* Standard Resets and Global Overrides */
+html, body {
+  margin: 0;
+  padding: 0;
+  background-color: #090d16;
+  color: #f3f4f6;
+  font-family: 'Inter', sans-serif;
+  overflow-x: hidden;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}

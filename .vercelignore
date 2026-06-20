@@ -1,0 +1,36 @@
+# Ignore local python virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Ignore local datasets (Vercel serverless has a 250MB limit)
+data/raw/
+data/processed/
+data/**/*.csv
+
+# Ignore local MLflow runs and databases
+mlruns/
+mlruns_db/
+mlflow.db
+
+# Ignore local logs and HTML drift reports
+logs/
+*.log
+*.html
+*.png
+
+# Ignore test suites and test caches
+tests/
+.pytest_cache/
+
+# Ignore Docker files not needed on Vercel
+Dockerfile
+docker-compose.yml
+
+# Ignore notebook files
+notebooks/
+
+# Ignore node modules and local builds of frontend (Vercel builds it itself)
+frontend/node_modules/
+frontend/dist/

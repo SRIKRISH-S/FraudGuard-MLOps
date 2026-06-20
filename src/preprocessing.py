@@ -4,7 +4,6 @@ from typing import Tuple, Union, Optional
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import RobustScaler
-from imblearn.over_sampling import SMOTE
 import joblib
 
 # Setup logging
@@ -98,6 +97,7 @@ class DataPreprocessor:
             
         logger.info(f"Applying SMOTE to balance data. Original counts: {np.bincount(y)}")
         try:
+            from imblearn.over_sampling import SMOTE
             smote = SMOTE(random_state=self.random_state)
             X_resampled, y_resampled = smote.fit_resample(X, y)
             logger.info(f"SMOTE applied. Resampled counts: {np.bincount(y_resampled)}")
