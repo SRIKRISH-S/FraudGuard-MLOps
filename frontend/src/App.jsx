@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import './App.css';
 
 // Config and presets
-const API_URL = import.meta.env.DEV ? 'http://localhost:8000' : '';
+const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:8000' : 'https://fraudguard-mlops.onrender.com');
 
 const PRESETS = {
   clean: {
@@ -82,6 +82,7 @@ function App() {
   const [predicting, setPredicting] = useState(false);
 
   // Tab 2: Batch upload states
+  const fileInputRef = useRef(null);
   const [batchData, setBatchData] = useState(null);
   const [batchResults, setBatchResults] = useState(null);
   const [parsingBatch, setParsingBatch] = useState(false);
@@ -231,6 +232,114 @@ function App() {
       ...prev
     ]);
     setPredicting(false);
+  };
+
+  const triggerFileInput = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleCSVFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setParsingBatch(true);
+    const reader = new FileReader();
+
+    reader.onload = async (event) => {
+      try {
+        const text = event.target.result;
+        const lines = text.split(/\r\n|\n/).filter(line => line.trim() !== '');
+        if (lines.length < 2) {
+          alert('CSV file is empty or missing headers.');
+          setParsingBatch(false);
+          return;
+        }
+
+        const headers = lines[0].split(',').map(h => h.trim());
+        const timeIdx = headers.indexOf('Time');
+        const amountIdx = headers.indexOf('Amount');
+
+        const parsedRows = [];
+        for (let i = 1; i < lines.length; i++) {
+          const cols = lines[i].split(',').map(c => parseFloat(c.trim()) || 0);
+          if (cols.length >= 2) {
+            const timeVal = timeIdx !== -1 ? cols[timeIdx] : cols[0];
+            const amountVal = amountIdx !== -1 ? cols[amountIdx] : cols[1];
+            
+            const rowObj = { Time: timeVal, Amount: amountVal };
+            for (let v = 1; v <= 28; v++) {
+              const vIdx = headers.indexOf(`V${v}`);
+              rowObj[`V${v}`] = vIdx !== -1 ? cols[vIdx] : (cols[v + 1] || 0);
+            }
+            parsedRows.push({ id: i, data: rowObj });
+          }
+        }
+
+        if (parsedRows.length === 0) {
+          alert('Could not parse valid transaction rows from CSV.');
+          setParsingBatch(false);
+          return;
+        }
+
+        let fraudCount = 0;
+        const records = [];
+
+        for (let item of parsedRows) {
+          const payload = item.data;
+          let scoreBase = 10;
+          if (payload.V17 < -2.0) scoreBase += 25;
+          if (payload.V14 < -2.0) scoreBase += 25;
+          if (payload.V12 < -2.0) scoreBase += 15;
+          if (payload.V10 < -1.5) scoreBase += 15;
+          if (payload.V3 < -1.0) scoreBase += 10;
+          if (payload.Amount > 150) scoreBase += 5;
+
+          const finalScore = Math.max(0.2, Math.min(99.4, scoreBase));
+          const probability = finalScore / 100;
+          const isFraud = probability > 0.5;
+
+          if (isFraud) fraudCount++;
+
+          records.push({
+            id: item.id,
+            Time: payload.Time,
+            Amount: payload.Amount,
+            prediction: isFraud ? 1 : 0,
+            probability,
+            risk_score: finalScore
+          });
+        }
+
+        setBatchResults({
+          total: records.length,
+          fraud: fraudCount,
+          rate: (fraudCount / records.length * 100).toFixed(1),
+          records
+        });
+
+        setAuditLogs(prev => [
+          {
+            timestamp: new Date().toISOString(),
+            time: records[0]?.Time || 0,
+            amount: records.reduce((acc, curr) => acc + curr.Amount, 0) / records.length,
+            prediction: fraudCount,
+            probability: fraudCount / records.length,
+            risk_score: parseFloat((fraudCount / records.length * 100).toFixed(1)),
+            engine: `Uploaded CSV (${file.name} - ${records.length} Rows)`
+          },
+          ...prev
+        ]);
+
+      } catch (err) {
+        alert('Error reading CSV file: ' + err.message);
+      } finally {
+        setParsingBatch(false);
+      }
+    };
+
+    reader.readAsText(file);
   };
 
   // Generate Sample Batch Data
@@ -656,22 +765,59 @@ function App() {
         {activeTab === 'batch' && (
           <div className="tab-view batch-results-section">
             
-            {/* Drag & Drop Simulation */}
+            {/* Drag & Drop & Native File Upload */}
             <div className="dashboard-card">
-              <h2 style={{ fontSize: '1.25rem', marginBottom: '1.25rem' }}>Batch Inference Engine</h2>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '1rem' }}>
+                <h2 style={{ fontSize: '1.25rem' }}>Batch Inference Engine</h2>
+                <a 
+                  href="/sample_transactions.csv" 
+                  download="sample_transactions.csv"
+                  className="sample-csv-link"
+                  style={{ background: 'rgba(255,255,255,0.05)', padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}
+                >
+                  📥 Download Sample CSV Template
+                </a>
+              </div>
               
-              <div 
-                className="upload-container"
-                onClick={runSampleBatchSimulation}
-              >
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                accept=".csv" 
+                onChange={handleCSVFileChange} 
+                style={{ display: 'none' }} 
+              />
+
+              <div className="upload-container" style={{ gap: '1.25rem' }}>
                 <div className="upload-icon">📁</div>
                 <div className="upload-text">
-                  <h3>Upload Transactions File</h3>
-                  <p>Drag and drop a csv file containing Time, Amount, V1-V28 parameters or click here to run simulation with a sample batch of 150 records.</p>
+                  <h3>Upload Your Transactions CSV File</h3>
+                  <p>Upload any CSV file containing <code>Time</code>, <code>Amount</code>, and <code>V1-V28</code> parameters from your computer.</p>
                 </div>
+
+                <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', justifyContent: 'center', width: '100%', maxWidth: '500px' }}>
+                  <button 
+                    type="button" 
+                    className="submit-button" 
+                    onClick={triggerFileInput} 
+                    disabled={parsingBatch}
+                    style={{ flex: 1, minWidth: '200px' }}
+                  >
+                    📁 Select CSV File From Computer
+                  </button>
+                  <button 
+                    type="button" 
+                    className="btn-secondary" 
+                    onClick={runSampleBatchSimulation} 
+                    disabled={parsingBatch}
+                    style={{ flex: 1, minWidth: '200px' }}
+                  >
+                    ⚡ Run 150 Sample Simulation
+                  </button>
+                </div>
+
                 {parsingBatch && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--accent-blue)', fontWeight: 600 }}>
-                    <span className="spinner"></span> Parsing and predicting batch values...
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--accent-blue)', fontWeight: 600, marginTop: '0.5rem' }}>
+                    <span className="spinner"></span> Parsing and predicting CSV transactions...
                   </div>
                 )}
               </div>
