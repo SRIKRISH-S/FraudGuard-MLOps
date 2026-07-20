@@ -27,7 +27,7 @@ COPY api/ api/
 COPY dashboard/ dashboard/
 COPY src/ src/
 COPY tests/ tests/
-COPY data/raw/creditcard.csv data/raw/creditcard.csv
+COPY models/ models/
 
 # Expose ports: 8000 for FastAPI, 8501 for Streamlit, 5000 for MLflow
 EXPOSE 8000 8501 5000
