@@ -114,6 +114,19 @@ def log_prediction_to_csv(tx_data: Dict[str, Any], pred_data: Dict[str, Any]) ->
     except Exception as e:
         logger.error(f"Failed to log transaction to audit file: {e}")
 
+@app.get("/")
+def root() -> Dict[str, Any]:
+    """
+    Root endpoint welcome gateway.
+    """
+    return {
+        "service": "FraudGuard API",
+        "status": "online",
+        "documentation": "/docs",
+        "health": "/health",
+        "model_info": "/model-info"
+    }
+
 @app.get("/health")
 def health() -> Dict[str, Any]:
     """
